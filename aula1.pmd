@@ -1,0 +1,72 @@
+# E1 - Análise de dados e Regressão Linear: Preço de imóveis
+
+Considere a base de dados "Ames Housing Dataset". Com o objetivo de desenvolver um modelo de predição do preço do imóvel, desenvolva os itens a seguir e entregue a análise em arquivo do tipo powerpoint ou pdf
+
+- Importando as bibliotecas
+```python
+import pandas as pd
+import numpy as np
+import statsmodels
+import seaborn
+from matplotlib import pyplot as plt
+pd.options.display.max_columns = 100
+```
+- Importando a base de dados
+```python
+df = pd.read_csv('base_1ah.csv')
+print(df.shape)
+```
+
+- Visualizando uma amostra da base_1ah
+```python
+ df.head()
+```
+```python
+ df = df.set_index('Id')
+```
+
+### 1 - Análise descritiva de variáveis
+
+1.1 Estatísticas descritivas: frequência, proporção, média (𝑥¯), desvio padrão (𝑠), quartis (𝑄1, 𝑥̃ , 𝑄3)      (1,0)
+
+Avaliando o tipo das variáveis na base_1ah
+```python
+ df.info()
+```
+
+Análise descritiva para variáveis numéricas
+```python
+ df.describe()
+```
+Análise descritiva das variáveis categóricas
+```python
+df.describe(include=object)
+```
+```python
+for i, x in enumerate(df.dtypes):
+  if x == 'object':
+    print(pd.crosstab(index=df[df.columns[i]], columns='freq', dropna=False))
+    print('')
+```
+1.2 Gráficos como: Gráficos de colunas, BoxPlot, dispersão          (2,0)
+
+Para gráficos numéricos plotamos boxplot e para categóricos gráficos de barra.
+```python
+for i, x in enumerate(df.dtypes):
+   if x == 'int64' or x == 'float64':
+       plt.figure(i)
+       seaborn.boxplot(y = df[df.columns[i]])
+   elif x == 'int64' or x == 'object':
+       plt.figure(i)
+       seaborn.barplot(x = df[df.columns[i]], y = range(0,len(df)) )
+```
+```python
+```
+
+2 - Análise de correlações (𝑟𝑥𝑖,𝑥𝑗)
+2.1 Correlograma                                                  (1,5)
+2.2 Análise sobre correlações significativas     (1,5)
+3 - Desenvolvimento de modelo de Regressão utilizando Regressão Linear com o método de mínimos quadrados ordinários. Apresente as características do desenvolvimento: amostras, medidas de avaliação do  modelo...
+3.1 Determinação do tamanho da amostra de teste         (0,5)
+3.2 Medidas de desempenho para amostra de treino e para amostra de teste: 𝑅2, 𝑅𝑀𝑆𝐸, 𝑀𝐴𝐸    (2,0)
+3.3 Descrição do modelo final, discussão sobre a significância obtida para os coeficientes, análise de resíduos (1,5)
