@@ -58,15 +58,158 @@ for i, x in enumerate(df.dtypes):
        seaborn.boxplot(y = df[df.columns[i]])
    elif x == 'int64' or x == 'object':
        plt.figure(i)
-       seaborn.barplot(x = df[df.columns[i]], y = range(0,len(df)) )
+       seaborn.barplot(x = df[df.columns[i]], y = range(0,len(df)))
 ```
+Gráficos de dispersão para dados numéricos
 ```python
+for i, x in enumerate(df.dtypes):
+    if x == 'float64':
+        plt.figure(i)
+        seaborn.scatterplot(x = df.SalePrice ,y = df[df.columns[i]])
+```
+2 - Análise de correlações (𝑟𝑥𝑖,𝑥𝑗)
+
+2.1 Correlograma                                                  (1,5)
+```python
+df_corr = df.corr()
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(figsize=(20, 12))
+# mask
+mask = np.triu(np.ones_like(df_corr, dtype=np.bool))
+# adjust mask and df
+mask = mask[1:, :-1]
+corr = df_corr.iloc[1:,:-1].copy()
+# plot heatmap
+seaborn.heatmap(corr, mask=mask, annot=True, fmt=".2f", cmap='Blues',
+           vmin=-1, vmax=1, cbar_kws={"shrink": .8})
+# yticks
+plt.yticks(rotation=0)
+plt.show()
+```
+2.2 Análise sobre correlações significativas     (1,5)
+
+Correlações com a variável resposta
+```python
+df.corr().loc['SalePrice']
+```
+Podemos notar que as variáveis com maior correlação são:
+
+- OverallQual      0.790982 - Faz todo sentido, dado que aqui é uma nota que dão para o imóvel
+
+- TotalBsmtSF      0.613581 - Talvez faça sentido o tamanho do sotão, pois existe a possibilidade de virar um espaço para alugar
+
+- 1stFlrSF         0.605852 - Aqui quanto maior a metragem do primeiro andar, maior a área comum, logo um valor maior
+
+- GrLivArea        0.708624 - Idem ao de cima, tamanho maior da área externa de convivência
+
+- GarageCars       0.640409 - Quantidade de carro que cabem na garagem valorizam o imóvel
+
+- GarageArea       0.623431 - Muita correlação com o de cima (0.88)
+
+3 - Desenvolvimento de modelo de Regressão utilizando Regressão Linear com o método de mínimos quadrados ordinários. Apresente as características do desenvolvimento: amostras, medidas de avaliação do  modelo...
+
+Primeiramente realizamos um tratamento nas variaveis categóricas e nos missings
+```python
+categorical_data = ['MSSubClass','MSZoning','Street','Alley','LotShape','LandContour','Utilities','LotConfig',
+'LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st',
+'Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1',
+'BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType',
+'GarageFinish','GarageQual','GarageCond','PavedDrive','PoolQC','Fence','MiscFeature','SaleType','SaleCondition']
+
+num_data = ['LotFrontage','LotArea','OverallQual','OverallCond','MasVnrArea','BsmtFinSF1','BsmtFinSF2','BsmtUnfSF',
+'TotalBsmtSF','1stFlrSF','2ndFlrSF','LowQualFinSF','GrLivArea','BsmtFullBath','BsmtHalfBath','FullBath','HalfBath',
+'BedroomAbvGr','KitchenAbvGr','TotRmsAbvGrd','Fireplaces','GarageCars','GarageArea','WoodDeckSF','OpenPorchSF',
+'EnclosedPorch','3SsnPorch','ScreenPorch','PoolArea','MiscVal']
+
+drop_data = ['id']
+
+date_data = ['YearBuilt','YearRemodAdd','GarageYrBlt','MoSold','YrSold']
+
+Y = df.SalePrice
+
+X_cat_df = pd.get_dummies(df[categorical_data].fillna('NA'))
+
+X_num_data = df[num_data].fillna(0)
+
+df['garageTime'] = df.YrSold - df.GarageYrBlt
+
+df['timeToSell'] = df.YrSold - df.YearBuilt
+
+X = pd.concat([X_cat_df, X_num_data, df.garageTime.fillna(0), df.timeToSell.fillna(0)], axis = 1)
 ```
 
-2 - Análise de correlações (𝑟𝑥𝑖,𝑥𝑗)
-2.1 Correlograma                                                  (1,5)
-2.2 Análise sobre correlações significativas     (1,5)
-3 - Desenvolvimento de modelo de Regressão utilizando Regressão Linear com o método de mínimos quadrados ordinários. Apresente as características do desenvolvimento: amostras, medidas de avaliação do  modelo...
+```python
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+```
+
+Aplicamos uma taxa de amostragem para teste de 30%, deixando 70% para treino
+```python
+ X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.3, random_state=1234)
+```
+```python
+rf = RandomForestRegressor(n_estimators=900,n_jobs=-1, max_depth=5)
+rf.fit(X_train,y_train)
+best_feat = list(pd.DataFrame(rf.feature_importances_, index=X_train.columns,columns=['Importance']).sort_values('Importance', ascending = False).index[0:20])
+best_feat
+```
+
+```python
+lr = LinearRegression()
+lr.fit(X_train[best_feat],y_train)
+
+print('Test R2 =', r2_score(y_test, lr.predict(X_test[best_feat])))
+print('Test MAE =', mean_absolute_error(y_test, lr.predict(X_test[best_feat])))
+print('Test RMSE =', np.sqrt(mean_squared_error(y_test, lr.predict(X_test[best_feat]))))
+```
+```python
+print('Train R2 =', r2_score(y_train, lr.predict(X_train[best_feat])))
+print('Train MAE =', mean_absolute_error(y_train, lr.predict(X_train[best_feat])))
+print('Train RMSE =', np.sqrt(mean_squared_error(y_train, lr.predict(X_train[best_feat]))))
+```
+
+```python
+import statsmodels.api as sm
+from scipy import stats
+
+X2_train = sm.add_constant(X_train)
+est = sm.OLS(y_train, X2_train)
+est2 = est.fit()
+print(est2.summary())
+
+seaborn.residplot(lr.predict(X_test[best_feat]),y_test, lowess=True,
+                                  line_kws={'color': 'red', 'lw': 1, 'alpha': 1})
+plt.xlabel("Fitted values")
+plt.title('Residual plot')
+```
+```python
+residuals = y_test - lr.predict(X_test[best_feat])
+residuals
+
+plt.figure(figsize=(7,7))
+stats.probplot(residuals, dist="norm", plot=plt)
+plt.title("Normal Q-Q Plot")
+
+```
+
+```python
+
+
+model_norm_residuals_abs_sqrt=np.sqrt(np.abs(residuals))
+
+plt.figure(figsize=(7,7))
+seaborn.regplot(lr.predict(X_test[best_feat]), model_norm_residuals_abs_sqrt,
+              scatter=True,
+              lowess=True,
+              line_kws={'color': 'red', 'lw': 1, 'alpha': 0.8})
+plt.ylabel("Standarized residuals")
+plt.xlabel("Fitted value")
+plt.title('Scale-Location plot')
+```
+
 3.1 Determinação do tamanho da amostra de teste         (0,5)
 3.2 Medidas de desempenho para amostra de treino e para amostra de teste: 𝑅2, 𝑅𝑀𝑆𝐸, 𝑀𝐴𝐸    (2,0)
 3.3 Descrição do modelo final, discussão sobre a significância obtida para os coeficientes, análise de resíduos (1,5)
