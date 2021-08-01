@@ -1,0 +1,37 @@
+# E2 - Classificação com Regressão Logística (Análise crédito)
+
+“South German Credit” é uma base com informações de 1000 créditos (700 good and 300 bad) com 20 variáveis preditoras.
+
+Objetivo: desenvolver um modelo de predição do risco de crédito (0 = bom; 1 = ruim)
+
+- Importando as bibliotecas
+```python
+import pandas as pd
+import numpy as np
+import statsmodels
+import seaborn
+from matplotlib import pyplot as plt
+pd.options.display.max_columns = 100
+```
+- Importando a base de dados
+```python
+df = pd.read_csv('base_2sgc.csv')
+print(df.shape)
+```
+
+- Visualizando uma amostra da base_1ah
+```python
+ df.head()
+```
+```python
+ df = df.set_index('Id')
+```
+
+1 - Análise descritiva de variáveis
+1.1 Estatísticas descritivas: frequência, tabelas cruzadas, média (𝑥¯), desvio padrão (𝑠), quartis (𝑄1, 𝑥̃ , 𝑄3)      (2,0)
+1.2 Gráficos como: Gráficos de colunas, BoxPlot por categorias          (2,0)
+2 - Desenvolvimento de modelo de Classificação utilizando Regressão Logística (binomial).
+2.1 Descrição da amostra de treino e de teste        (0,5)
+2.2 Descrição do modelo, coeficientes, significância obtida        (2,0)
+2.3 Curva ROC obtida no treino - análise                 (1,0)
+2.4 Medidas de desempenho para amostra de treino e para a amostra de teste: Matriz confusão, precisão, revocação, 𝐹1        (2,5)
