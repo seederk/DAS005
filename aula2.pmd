@@ -96,6 +96,8 @@ X_cat['people_liable'] = pd.factorize(pd.Categorical(X_cat['people_liable'], cat
 
 X_cat= pd.get_dummies(X_cat)
 
+Y = pd.factorize(Y)[0]
+
 def robust_scaling(df):
     df_robust = df.copy()
     for column in df_robust.columns:
@@ -122,6 +124,7 @@ Aplicamos uma taxa de amostragem para teste de 30%, deixando 70% para treino
 
  log_reg = LogisticRegression()
  log = log_reg.fit(X_train, y_train)
+ y_pred = log.predict(y_train)
  print("train score: ", log.score(X_train,y_train))
  print("test score: ", log.score(X_test,y_test))
 ```
@@ -136,3 +139,7 @@ plt.hlines(0,0, X_train.shape[1])
 2.2 Descrição do modelo, coeficientes, significância obtida        (2,0)
 2.3 Curva ROC obtida no treino - análise                 (1,0)
 2.4 Medidas de desempenho para amostra de treino e para a amostra de teste: Matriz confusão, precisão, revocação, 𝐹1        (2,5)
+```python
+ from sklearn.metrics import confusion_matrix
+ confusion_matrix(y_train, )
+```
