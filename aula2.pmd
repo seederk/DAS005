@@ -5,6 +5,7 @@
 Objetivo: desenvolver um modelo de predição do risco de crédito (0 = bom; 1 = ruim)
 
 - Importando as bibliotecas
+
 ```python
 import pandas as pd
 import numpy as np
@@ -20,7 +21,7 @@ df = pd.read_csv('base_2sgc.csv')
 print(df.shape)
 ```
 
-- Visualizando uma amostra da base_1ah
+- Visualizando uma amostra da base
 ```python
  df.head()
 ```
@@ -29,40 +30,43 @@ print(df.shape)
 
 1.1 Estatísticas descritivas: frequência, tabelas cruzadas, média (𝑥¯), desvio padrão (𝑠), quartis (𝑄1, 𝑥̃ , 𝑄3)      (2,0)
 
-Avaliando o tipo das variáveis na base
+- Avaliando o tipo das variáveis na base
 ```python
  df.info()
 ```
 
-Análise descritiva para variáveis numéricas
+- Análise descritiva para variáveis numéricas
 ```python
  df.describe()
 ```
-Análise descritiva das variáveis categóricas
+- Análise descritiva das variáveis categóricas
 ```python
 df.describe(include=object)
 ```
 ```python
+plt.rcParams["figure.figsize"] = (20,10)
 for i, x in enumerate(df.dtypes):
   if x == 'object':
-    print(pd.crosstab(index=df[df.columns[i]], columns='freq', dropna=False))
+    #print(pd.crosstab(index=df[df.columns[i]], columns='freq', dropna=False))
+    print(pd.crosstab(df[df.columns[i]], df['credit_risk']).apply(lambda r: r/r.sum(), axis=0))
     print('')
 ```
 1.2 Gráficos como: Gráficos de colunas, BoxPlot por categorias          (2,0)
 ```python
-import matplotlib.pyplot as plt
+import seaborn as sns
+
 for i, x in enumerate(df.dtypes):
    if x == 'int64' or x == 'float64':
        plt.figure(i)
-       seaborn.boxplot(y = df[df.columns[i]])
-   elif x == 'int64' or x == 'object':
+       sns.boxplot(data = df, y = df[df.columns[i]], hue = df['credit_risk'])
+   elif x == 'object':
        plt.figure(i)
-       seaborn.barplot(x = df[df.columns[i]], y = range(0, len(df)))
+       sns.countplot(x=df[df.columns[i]], hue = 'credit_risk', data=df)
 ```
 
 ## 2 - Desenvolvimento de modelo de Classificação utilizando Regressão Logística (binomial).
 
-Primeiramente realizamos um tratamento nas variaveis categóricas e nos missings
+- Primeiramente realizamos um tratamento nas variaveis
 ```python
 cols = df.columns
 num_data = list(df._get_numeric_data().columns)
@@ -101,7 +105,7 @@ Y = pd.factorize(Y)[0]
 def robust_scaling(df):
     df_robust = df.copy()
     for column in df_robust.columns:
-        df_robust[column] = (df_robust[column] - df_robust[column].median())  / (df_robust[column].quantile(0.75) - df_robust[column].quantile(0.25))
+        df_robust[column] = (df_robust[column] - df_robust[column].median())/(df_robust[column].quantile(0.75) - df_robust[column].quantile(0.25))
     return df_robust
 
 X_num_data = robust_scaling(X_num_data)
@@ -118,28 +122,73 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 ```
 2.1 Descrição da amostra de treino e de teste        (0,5)
 
-Aplicamos uma taxa de amostragem para teste de 30%, deixando 70% para treino
+Aplicamos uma taxa de amostragem para teste de 20%, deixando 80% para treino e estratificado para manter a mesma proporçao de bons e mals nas duas amostras.
 ```python
- X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.3, random_state=1234)
+X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=1234, stratify=Y)
 
- log_reg = LogisticRegression()
- log = log_reg.fit(X_train, y_train)
- y_pred = log.predict(y_train)
- print("train score: ", log.score(X_train,y_train))
- print("test score: ", log.score(X_test,y_test))
+log_reg = LogisticRegression()
+log = log_reg.fit(X_train, y_train)
+y_pred = log.predict(X_train)
+y_predtest = log.predict(X_test)
+print("train score: ", log.score(X_train,y_train))
+print("test score: ", log.score(X_test,y_test))
 ```
-Vamos ver a probabilidade de uma pessoa ser uma boa ou má pagadora
-
+2.2 Descrição do modelo, coeficientes, significância obtida        (2,0)
 ```python
-plt.rcParams["figure.figsize"] = (20,3)
+odds = np.exp(log.coef_[0])/(1 + np.exp(log.coef_[0]))
+coeficientes = pd.DataFrame(odds,
+             X_train.columns,
+             columns=['coef'])\
+            .sort_values(by='coef', ascending=False)
+print(coeficientes)
+print(" ")
+plt.rcParams["figure.figsize"] = (20,10)
 plt.plot(log.coef_.T, 'o', label = "teste")
 plt.xticks(range(X_train.shape[1]), X_train.columns, rotation=90)
 plt.hlines(0,0, X_train.shape[1])
 ```
-2.2 Descrição do modelo, coeficientes, significância obtida        (2,0)
+A partir do resultado acima podemos notar que as variáveis mais importantes
+fazem sentido dado que o histórico de atraso no passado, propósito do empréstimo sem definiçao
+podendo ser um emprestimo sem garantia, para fins de reparo tambem podem ser creditos
+mais arriscado dado que não necessariamente a um valor agregado para aquele montante emprestado.
+Por fim, crédito em outros bancos já mostra um individamento maior do indivíduo, diminuindo
+sua capacidade de pagamento por já possuir compromisso com outras instituições.
+
 2.3 Curva ROC obtida no treino - análise                 (1,0)
+```python
+from sklearn.metrics import roc_curve
+plt.rcParams["figure.figsize"] = (20,10)
+fpr, tpr, thresholds = roc_curve(y_train, y_pred)
+
+def plot_roc(fpr, tpr, thresholds):
+  plt.plot(fpr, tpr, label=None)
+  plt.plot([0,1], [0,1], 'k--')
+  plt.axis([0,1,0,1])
+  plt.xlabel("Taxa de Falso positivo")
+  plt.ylabel("Taxa de Verdadeiros positivos")
+
+plot_roc(fpr, tpr, thresholds)
+plt.show()
+```
 2.4 Medidas de desempenho para amostra de treino e para a amostra de teste: Matriz confusão, precisão, revocação, 𝐹1        (2,5)
 ```python
- from sklearn.metrics import confusion_matrix
- confusion_matrix(y_train, )
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
+print('treino')
+print('matriz de confusão: ')
+print(confusion_matrix(y_train, y_pred))
+print('Precision: ', precision_score(y_train, y_pred))
+print('Recall: ', recall_score(y_train, y_pred))
+print('F1: ', f1_score(y_train, y_pred))
+
+print('teste')
+print('matriz de confusão: ')
+print(confusion_matrix(y_test, y_predtest))
+print('Precision: ', precision_score(y_test, y_predtest))
+print('Recall: ', recall_score(y_test, y_predtest))
+print('F1: ', f1_score(y_test, y_predtest))
 ```
+## Conclusão
+
+  Pelos resultados obtidos podemos concluir que o modelo não possui overffiting.
+  Apesar do ajuste apresentar uma acurária de 78%, a partir dos resultados da matriz de confusão
+  é possível dizer que o modelo não classifica bem os mal pagadores.
