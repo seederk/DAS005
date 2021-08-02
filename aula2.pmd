@@ -1,4 +1,4 @@
-# E2 - Classificação com Regressão Logística (Análise crédito)
+ # E2 - Classificação com Regressão Logística (Análise crédito)
 
 “South German Credit” é uma base com informações de 1000 créditos (700 good and 300 bad) com 20 variáveis preditoras.
 
@@ -12,6 +12,7 @@ import statsmodels
 import seaborn
 from matplotlib import pyplot as plt
 pd.options.display.max_columns = 100
+pd.options.mode.chained_assignment = None  # default='warn'
 ```
 - Importando a base de dados
 ```python
@@ -23,15 +24,115 @@ print(df.shape)
 ```python
  df.head()
 ```
+
+## 1 - Análise descritiva de variáveis
+
+1.1 Estatísticas descritivas: frequência, tabelas cruzadas, média (𝑥¯), desvio padrão (𝑠), quartis (𝑄1, 𝑥̃ , 𝑄3)      (2,0)
+
+Avaliando o tipo das variáveis na base
 ```python
- df = df.set_index('Id')
+ df.info()
 ```
 
-1 - Análise descritiva de variáveis
-1.1 Estatísticas descritivas: frequência, tabelas cruzadas, média (𝑥¯), desvio padrão (𝑠), quartis (𝑄1, 𝑥̃ , 𝑄3)      (2,0)
+Análise descritiva para variáveis numéricas
+```python
+ df.describe()
+```
+Análise descritiva das variáveis categóricas
+```python
+df.describe(include=object)
+```
+```python
+for i, x in enumerate(df.dtypes):
+  if x == 'object':
+    print(pd.crosstab(index=df[df.columns[i]], columns='freq', dropna=False))
+    print('')
+```
 1.2 Gráficos como: Gráficos de colunas, BoxPlot por categorias          (2,0)
-2 - Desenvolvimento de modelo de Classificação utilizando Regressão Logística (binomial).
+```python
+import matplotlib.pyplot as plt
+for i, x in enumerate(df.dtypes):
+   if x == 'int64' or x == 'float64':
+       plt.figure(i)
+       seaborn.boxplot(y = df[df.columns[i]])
+   elif x == 'int64' or x == 'object':
+       plt.figure(i)
+       seaborn.barplot(x = df[df.columns[i]], y = range(0, len(df)))
+```
+
+## 2 - Desenvolvimento de modelo de Classificação utilizando Regressão Logística (binomial).
+
+Primeiramente realizamos um tratamento nas variaveis categóricas e nos missings
+```python
+cols = df.columns
+num_data = list(df._get_numeric_data().columns)
+categorical_data = list(set(cols) - set(num_data) - set(['credit_risk']))
+Y = df.credit_risk
+X_cat = df[categorical_data]
+X_num_data = df[num_data]
+
+factorize_cols = ['status', 'savings', 'employment_duration', 'installment_rate', 'present_residence', 'number_credits', 'people_liable']
+
+dummies_cols = list(set(categorical_data) - set(factorize_cols))
+```
+
+```python
+
+cat_status = ["no checking account", "... < 0 DM", "0<= ... < 200 DM", "... >= 200 DM / salary for at least 1 year"]
+cat_savings = ["unknown/no savings account", "... <  100 DM", "100 <= ... <  500 DM", "500 <= ... < 1000 DM", "... >= 1000 DM"]
+cat_employment_duration = ["unemployed", "< 1 yr", "1 <= ... < 4 yrs", "4 <= ... < 7 yrs", ">= 7 yrs"]
+cat_installment_rate = [">= 35", "25 <= ... < 35", "20 <= ... < 25", "< 20"]
+cat_present_residence = ["< 1 yr", "1 <= ... < 4 yrs", "4 <= ... < 7 yrs", ">= 7 yrs"]
+cat_number_credits = ["1", "2-3", "4-5", ">= 6"]
+cat_people_liable = ["3 or more", "0 to 2"]
+
+X_cat['status'] = pd.factorize(pd.Categorical(X_cat['status'], categories = cat_status))[0]
+X_cat['savings'] = pd.factorize(pd.Categorical(X_cat['savings'], categories = cat_savings))[0]
+X_cat['employment_duration'] = pd.factorize(pd.Categorical(X_cat['employment_duration'], categories = cat_employment_duration))[0]
+X_cat['installment_rate'] = pd.factorize(pd.Categorical(X_cat['installment_rate'], categories = cat_installment_rate))[0]
+X_cat['present_residence'] = pd.factorize(pd.Categorical(X_cat['present_residence'], categories = cat_present_residence))[0]
+X_cat['number_credits'] = pd.factorize(pd.Categorical(X_cat['number_credits'], categories = cat_number_credits))[0]
+X_cat['people_liable'] = pd.factorize(pd.Categorical(X_cat['people_liable'], categories = cat_people_liable))[0]
+
+X_cat= pd.get_dummies(X_cat)
+
+def robust_scaling(df):
+    df_robust = df.copy()
+    for column in df_robust.columns:
+        df_robust[column] = (df_robust[column] - df_robust[column].median())  / (df_robust[column].quantile(0.75) - df_robust[column].quantile(0.25))
+    return df_robust
+
+X_num_data = robust_scaling(X_num_data)
+
+
+X = pd.concat([X_cat, X_num_data], axis = 1)
+
+```
+Importando as bibliotecas de ML
+```python
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+```
 2.1 Descrição da amostra de treino e de teste        (0,5)
+
+Aplicamos uma taxa de amostragem para teste de 30%, deixando 70% para treino
+```python
+ X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.3, random_state=1234)
+
+ log_reg = LogisticRegression()
+ log = log_reg.fit(X_train, y_train)
+ print("train score: ", log.score(X_train,y_train))
+ print("test score: ", log.score(X_test,y_test))
+```
+Vamos ver a probabilidade de uma pessoa ser uma boa ou má pagadora
+
+```python
+plt.rcParams["figure.figsize"] = (20,3)
+plt.plot(log.coef_.T, 'o', label = "teste")
+plt.xticks(range(X_train.shape[1]), X_train.columns, rotation=90)
+plt.hlines(0,0, X_train.shape[1])
+```
 2.2 Descrição do modelo, coeficientes, significância obtida        (2,0)
 2.3 Curva ROC obtida no treino - análise                 (1,0)
 2.4 Medidas de desempenho para amostra de treino e para a amostra de teste: Matriz confusão, precisão, revocação, 𝐹1        (2,5)
